@@ -28,7 +28,7 @@ SELECT
     current_timestamp               AS loaded_at
 
 FROM read_json_auto(
-    'raw/api_football/players/league=39/season=2023/snapshot=2024-01-15.json'
+    'raw/api_football/players/league=39/season=2023/*.json'
 ) r
 CROSS JOIN UNNEST(r.response) AS p(resp)
 CROSS JOIN UNNEST(p.resp.statistics) AS s(stat);
