@@ -2,19 +2,34 @@ import duckdb
 from pathlib import Path
 
 DUCKDB_PATH = Path("staging/staging.duckdb")
-SQL_PATH = Path("etl/sql/stg_players.sql")
+
+SQL_FILES = [
+    "etl/sql/stg_players.sql",          # base desde JSON
+    "etl/sql/stg_players_clean.sql",    # dimensión jugador
+    "etl/sql/stg_player_stats.sql"      # hechos
+]
 
 print("🦆 Conectando a DuckDB...")
 con = duckdb.connect(DUCKDB_PATH)
 
-print("📜 Ejecutando SQL de staging...")
-sql = SQL_PATH.read_text()
-con.execute(sql)
+for sql_file in SQL_FILES:
+    print(f"📜 Ejecutando {sql_file}...")
+    sql = Path(sql_file).read_text()
+    con.execute(sql)
 
-print("✅ Tabla stg_players creada")
+print("✅ Staging separado creado")
 
-# chequeo rápido
-rows = con.execute("SELECT COUNT(*) FROM stg_players").fetchone()[0]
-print(f"📊 Filas cargadas: {rows}")
+# Checks
+players = con.execute(
+    "SELECT COUNT(*) FROM stg_players_clean"
+).fetchone()[0]
+
+stats = con.execute(
+    "SELECT COUNT(*) FROM stg_player_stats"
+).fetchone()[0]
+
+print(f"🧍 Players únicos: {players}")
+print(f"📊 Filas de stats: {stats}")
 
 con.close()
+
