@@ -6,6 +6,7 @@ DUCKDB_PATH = Path("staging/staging.duckdb")
 SQL_FILES = [
     "etl/sql/dim_player.sql",
     "etl/sql/dim_team.sql",
+    "etl/sql/dim_league.sql",
 ]
 
 print("🏗️ Construyendo warehouse...")
@@ -16,16 +17,14 @@ for sql_file in SQL_FILES:
     sql = Path(sql_file).read_text()
     con.execute(sql)
 
-players = con.execute(
-    "SELECT COUNT(*) FROM dim_player"
-).fetchone()[0]
-
-teams = con.execute(
-    "SELECT COUNT(*) FROM dim_team"
-).fetchone()[0]
+players = con.execute("SELECT COUNT(*) FROM dim_player").fetchone()[0]
+teams   = con.execute("SELECT COUNT(*) FROM dim_team").fetchone()[0]
+leagues = con.execute("SELECT COUNT(*) FROM dim_league").fetchone()[0]
 
 print(f"🧍 Dim players: {players}")
 print(f"🏟️ Dim teams: {teams}")
+print(f"🏆 Dim leagues: {leagues}")
 
 con.close()
+
 
