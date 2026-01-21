@@ -1,4 +1,4 @@
-CREATE OR REPLACE TABLE stg_players_clean AS
+CREATE OR REPLACE TABLE staging.stg_players_clean AS
 SELECT DISTINCT
     player_id,
     player_name,

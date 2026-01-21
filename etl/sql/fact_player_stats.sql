@@ -12,7 +12,7 @@ SELECT
     s.assists,
     s.rating
 
-FROM stg_player_stats s
+FROM staging.stg_player_stats s
 JOIN dim_player p
     ON s.player_id = p.player_id
 JOIN dim_team t

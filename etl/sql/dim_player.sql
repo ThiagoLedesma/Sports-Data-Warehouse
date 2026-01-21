@@ -15,4 +15,4 @@ SELECT
     current_date                AS effective_from,
     NULL                        AS effective_to
 
-FROM stg_players_clean;
+FROM staging.stg_players_clean;
