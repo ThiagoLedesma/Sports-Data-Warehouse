@@ -6,7 +6,8 @@ DUCKDB_PATH = Path("staging/staging.duckdb")
 SQL_FILES = [
     "etl/sql/stg_players.sql",          # base desde JSON
     "etl/sql/stg_players_clean.sql",    # dimensión jugador
-    "etl/sql/stg_player_stats.sql"      # hechos
+    "etl/sql/stg_player_stats.sql",     # hechos
+    "etl/sql/stg_player_stats_clean.sql", # hechos limpios   
 ]
 
 print("🦆 Conectando a DuckDB...")
