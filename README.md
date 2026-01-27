@@ -160,6 +160,18 @@ python etl/run_quality_checks.py
 
 ---
 
+## 🔮 Mejoras futuras (con más tiempo)
+
+Si este proyecto se llevara a un entorno productivo real, los siguientes pasos serían prioritarios:
+
+* Implementar **cargas incrementales** basadas en fecha de actualización de la API
+* Versionar snapshots históricos para análisis temporal completo
+* Orquestar el pipeline con **Airflow / Dagster**
+* Agregar **tests automatizados en Python** para data quality
+* Exponer el warehouse a una herramienta BI (Power BI / Metabase / Superset)
+
+---
+
 ## 🏁 Conclusión
 
 Este proyecto replica un flujo real de **Data Engineering**, enfatizando:
@@ -174,4 +186,5 @@ Ideal como **proyecto de portfolio** para roles de Data Engineer / Analytics Eng
 ---
 
 📌 *Datos con pelota, pero ingeniería en serio.*
+
 
