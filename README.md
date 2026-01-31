@@ -1,190 +1,130 @@
-# 🏟 Sports Data Warehouse — Football Analytics
+# 🏟️ Sports Data Warehouse – Football Analytics
 
-Proyecto de **Data Engineering / Analytics Engineering** enfocado en construir un **Data Warehouse incremental** a partir de datos de fútbol obtenidos vía API, utilizando **DuckDB**, SQL y Python.
+## 📌 Overview
 
-El objetivo principal es demostrar:
+This project implements a **Sports Data Warehouse** for football data using a full **Raw → Staging → Warehouse** architecture. The goal is to ingest data from an external football API, model it using a **star schema**, and enable **incremental loads** and **BI-style analytics queries**.
 
-* modelado dimensional correcto (star schema)
-* cargas incrementales reales (no full reloads)
-* control de snapshots históricos
-* detección y corrección de duplicados
-* diseño defendible en entrevistas técnicas
+The warehouse answers questions such as:
+
+* Who are the top scorers?
+* Which players are the most consistent?
+* How do teams and nationalities perform over time?
 
 ---
 
-## 🧱 Arquitectura general
+## 🏗️ Architecture
 
 ```
-raw/            → JSON crudo desde API
-staging/        → normalización y limpieza
-warehouse/      → modelo estrella final
+raw/                → JSON snapshots from API Football
+staging/            → Cleaned & incremental staging tables (DuckDB)
+warehouse/          → Star schema (dimensions + fact)
+etl/                → SQL + Python ETL logic
+analytics/          → BI queries & sanity checks
 ```
 
-**Tecnologías**:
+### Data Flow
 
-* DuckDB
-* SQL (MERGE, window functions)
-* Python
+1. **Raw**: API responses stored as JSON snapshots
+2. **Staging**:
 
----
+   * Base staging tables (flattened JSON)
+   * Incremental staging using `snapshot_date`
+3. **Warehouse**:
 
-## ⭐ Modelo dimensional (Star Schema)
-
-### Dimensiones
-
-* `dim_player`
-* `dim_team`
-* `dim_league`
-
-### Hechos
-
-* `fact_player_stats`
-
-**Grain del fact**:
-
-> 1 fila por **player + team + league + season**
+   * Dimension tables (`dim_player`, `dim_team`, `dim_league`)
+   * Fact table (`fact_player_stats`)
+4. **Incremental control** via `etl_control`
 
 ---
 
-## 🔄 Pipeline ETL
+## ⭐ Data Model (Star Schema)
 
-### 1️⃣ Ingesta RAW
+### Dimensions
 
-Datos obtenidos desde API Football y almacenados como JSON:
+* **dim_player**: player attributes (name, age, nationality)
+* **dim_team**: team metadata
+* **dim_league**: league metadata
 
-```
-raw/api_football/players/league=39/season=2023/snapshot=YYYY-MM-DD_page=X.json
-```
+### Fact
 
-Cada snapshot representa el estado completo de la API en una fecha determinada.
+* **fact_player_stats**
 
----
+**Grain**:
 
-### 2️⃣ Staging
+> One row per **player – team – league – season**
 
-Normalización y limpieza de JSON:
-
-* flatten de estructuras anidadas
-* casteos de tipos
-* extracción de `snapshot_date` desde filename
-
-Tablas clave:
-
-* `stg_players`
-* `stg_players_clean`
-* `stg_players_incremental`
-* `stg_players_incremental_clean`
+This grain is enforced and validated using a sanity check.
 
 ---
 
-### 3️⃣ Incremental load (core del proyecto)
+## 🔄 Incremental Loads
 
-Se implementan cargas incrementales reales usando:
-
-* snapshots
-* tabla de control
-* `MERGE INTO`
-
-#### Tabla de control
+Incremental logic is driven by the `etl_control` table:
 
 ```sql
-etl_control(
-  source_name,
-  last_snapshot
-)
+(source_name, last_snapshot)
 ```
 
-Permite procesar **solo nuevos snapshots**.
+Each ETL run:
+
+1. Reads only snapshots newer than `last_snapshot`
+2. Merges data into dimensions and fact tables
+3. Updates `etl_control`
+
+This avoids full reloads and supports historical corrections.
 
 ---
 
-### 4️⃣ Merge en dimensiones
+## 🧪 Data Quality & Sanity Checks
 
-Ejemplo: `dim_player`
-
-* **UPDATE** si existe el player y el snapshot es más nuevo
-* **INSERT** si el player no existe
-
-Esto permite:
-
-* mantener dimensiones actualizadas
-* evitar duplicados
-
----
-
-### 5️⃣ Merge en fact
-
-`fact_player_stats` se carga incrementalmente usando:
-
-* keys surrogate
-* comparación de snapshot
-
-Se corrigieron duplicados históricos mediante:
-
-* `ROW_NUMBER()`
-* limpieza one-time
-
----
-
-## 🧪 Data Quality Checks
-
-Algunos checks implementados:
-
-* igualdad entre total rows y distinct grain
-* detección de NULLs críticos
-* control de duplicados post-merge
-
-Ejemplo:
+A grain validation query ensures the fact table has no duplicates:
 
 ```sql
-COUNT(*) = COUNT(DISTINCT player_key, team_key, league_key, season)
+SELECT
+  COUNT(*) AS total_rows,
+  COUNT(DISTINCT player_key, team_key, league_key, season) AS distinct_events
+FROM fact_player_stats;
 ```
 
----
-
-## 🧠 Decisiones de diseño
-
-* DuckDB elegido por simplicidad y potencia analítica
-* snapshots completos para garantizar consistencia
-* MERGE para simular pipelines productivos
-* evitar herramientas externas (Airflow) para foco conceptual
+(Implemented via subquery due to DuckDB limitations.)
 
 ---
 
-## 📈 Estado actual
+## 📊 Analytics
 
-* ✔ Dimensiones incrementales
-* ✔ Fact incremental
-* ✔ Control de snapshots
-* ✔ Warehouse consistente
+The `analytics/` folder contains example BI queries, including:
 
----
+* Top scorers
+* Most appearances
+* Goals by team
+* Goals by nationality
+* All-round players (goals + assists)
 
-## 🔮 Próximos pasos
-
-* Queries BI (top scorers, evolución temporal)
-* Dockerización
-* Orquestación (Airflow / Dagster)
-* Tests automáticos
+These queries demonstrate how the warehouse can be used for football performance analysis.
 
 ---
 
-## 🎯 Objetivo del proyecto
+## 🛠️ Tech Stack
 
-Este proyecto está pensado para:
-
-* entrevistas técnicas de Data Engineer / Analytics Engineer
-* demostrar dominio real de ETL incremental
-* servir como base para análisis BI
+* **DuckDB** – analytical database
+* **Python** – orchestration
+* **SQL** – transformations & modeling
+* **API Football** – data source
 
 ---
 
--- Sanity check:
--- Verifies fact_player_stats grain uniqueness:
--- (player_key, team_key, league_key, season)
+## 🚀 Next Steps
 
+* Dockerize the project for reproducibility
+* Add automated ETL checks
+* Optional BI dashboard (Power BI / Superset)
 
-👤 Autor: *Thiago*
+---
+
+## 👤 Author
+
+Built as a learning-focused end-to-end data engineering project.
+
 
 
 
