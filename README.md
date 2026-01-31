@@ -179,6 +179,11 @@ Este proyecto está pensado para:
 
 ---
 
+-- Sanity check:
+-- Verifies fact_player_stats grain uniqueness:
+-- (player_key, team_key, league_key, season)
+
+
 👤 Autor: *Thiago*
 
 
