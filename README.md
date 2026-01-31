@@ -1,190 +1,185 @@
-# ⚽ Sports Data Warehouse – API-Football
+# 🏟 Sports Data Warehouse — Football Analytics
 
-Proyecto de **Data Engineering** end‑to‑end que construye un **Data Warehouse en estrella** a partir de datos deportivos obtenidos desde **API‑Football**, aplicando buenas prácticas de **ETL, modelado dimensional, data quality y analytics SQL**.
+Proyecto de **Data Engineering / Analytics Engineering** enfocado en construir un **Data Warehouse incremental** a partir de datos de fútbol obtenidos vía API, utilizando **DuckDB**, SQL y Python.
 
-> Objetivo: demostrar cómo pasar de una API cruda a un warehouse listo para BI y análisis, con foco en diseño y confiabilidad de datos.
+El objetivo principal es demostrar:
 
----
-
-## 🧠 Arquitectura general
-
-```
-API-Football
-     ↓
-Raw Layer (JSON particionado)
-     ↓
-Staging Layer (DuckDB)
-     ↓
-Warehouse (Modelo estrella)
-     ↓
-Analytics SQL (BI)
-```
-
-* **Fuente**: API-Football (REST)
-* **Storage**: archivos JSON + DuckDB
-* **Lenguaje**: Python + SQL
-* **Modelo**: Star Schema
+* modelado dimensional correcto (star schema)
+* cargas incrementales reales (no full reloads)
+* control de snapshots históricos
+* detección y corrección de duplicados
+* diseño defendible en entrevistas técnicas
 
 ---
 
-## 📁 Estructura del proyecto
+## 🧱 Arquitectura general
 
 ```
-Sports-Data-Warehouse/
-│
-├── raw/                    # JSON crudos desde la API
-│   └── api_football/
-│
-├── staging/                # DuckDB de staging
-│   └── staging.duckdb
-│
-├── warehouse/              # DuckDB final (analytics-ready)
-│   └── warehouse.duckdb
-│
-├── etl/
-│   ├── extract/            # Scripts de extracción API → JSON
-│   ├── sql/
-│   │   ├── stg_*.sql       # Transformaciones de staging
-│   │   ├── dim_*.sql       # Dimensiones
-│   │   └── fact_*.sql      # Tabla de hechos
-│   ├── load_staging.py
-│   └── load_warehouse.py
-│
-├── etl/checks/             # Data Quality checks
-│   ├── data_quality_critical.sql
-│   └── data_quality_warning.sql
-│
-├── analytics/              # Queries BI
-│   ├── top_scorers.sql
-│   ├── goals_per_90.sql
-│   ├── top_rated_players.sql
-│   └── team_offense.sql
-│
-└── README.md
+raw/            → JSON crudo desde API
+staging/        → normalización y limpieza
+warehouse/      → modelo estrella final
 ```
+
+**Tecnologías**:
+
+* DuckDB
+* SQL (MERGE, window functions)
+* Python
 
 ---
 
-## 🧱 Modelo de datos
+## ⭐ Modelo dimensional (Star Schema)
 
-### ⭐ Dimensiones
+### Dimensiones
 
-* **dim_player**: información del jugador
-* **dim_team**: equipos
-* **dim_league**: ligas
-* **dim_date**: calendario (generado)
+* `dim_player`
+* `dim_team`
+* `dim_league`
 
-### 📊 Hechos
+### Hechos
 
-* **fact_player_stats**
+* `fact_player_stats`
 
-  * Métricas: minutes, goals, assists, rating, appearances
-  * Grano: *jugador – equipo – liga – temporada*
+**Grain del fact**:
+
+> 1 fila por **player + team + league + season**
 
 ---
 
-## 🔄 ETL Flow
+## 🔄 Pipeline ETL
 
-### 1️⃣ Extract
+### 1️⃣ Ingesta RAW
 
-* Consumo de endpoints de API‑Football (`players`, `teams`, `leagues`, `fixtures`, etc.)
-* Persistencia en **JSON particionado** por league, season y snapshot
+Datos obtenidos desde API Football y almacenados como JSON:
+
+```
+raw/api_football/players/league=39/season=2023/snapshot=YYYY-MM-DD_page=X.json
+```
+
+Cada snapshot representa el estado completo de la API en una fecha determinada.
+
+---
 
 ### 2️⃣ Staging
 
-* Lectura de múltiples JSON con `read_json_auto`
-* Normalización de estructuras anidadas
-* Limpieza de tipos y valores inconsistentes
+Normalización y limpieza de JSON:
 
-### 3️⃣ Warehouse
+* flatten de estructuras anidadas
+* casteos de tipos
+* extracción de `snapshot_date` desde filename
 
-* Construcción de dimensiones con **surrogate keys**
-* Hechos referenciando dimensiones
-* Modelo estrella optimizado para BI
+Tablas clave:
+
+* `stg_players`
+* `stg_players_clean`
+* `stg_players_incremental`
+* `stg_players_incremental_clean`
 
 ---
 
-## 🧪 Data Quality
+### 3️⃣ Incremental load (core del proyecto)
 
-Se implementaron checks automáticos separados por severidad:
+Se implementan cargas incrementales reales usando:
 
-### ✅ Critical checks
+* snapshots
+* tabla de control
+* `MERGE INTO`
 
-* Claves nulas en dimensiones
-* Claves foráneas huérfanas en la fact table
+#### Tabla de control
 
-### ⚠️ Warning checks
-
-* Minutos inválidos (>120 o <0)
-
-Ejemplo de output:
-
-```
-🧪 Results from data_quality_critical.sql
-fact_player_stats - orphan team_key: 0
-
-🧪 Results from data_quality_warning.sql
-fact_player_stats - invalid minutes: 8
+```sql
+etl_control(
+  source_name,
+  last_snapshot
+)
 ```
 
----
-
-## 📊 Analytics (BI)
-
-Ejemplos de consultas incluidas:
-
-* Top goleadores por temporada
-* Goles por 90 minutos (eficiencia)
-* Jugadores mejor calificados
-* Producción ofensiva por equipo
-
-Todas las queries viven en la carpeta `analytics/` y se ejecutan directamente sobre el warehouse.
+Permite procesar **solo nuevos snapshots**.
 
 ---
 
-## 🚀 Cómo ejecutar el proyecto
+### 4️⃣ Merge en dimensiones
 
-```bash
-# activar entorno virtual
-source .venv/bin/activate
+Ejemplo: `dim_player`
 
-# cargar staging
-python etl/load_staging.py
+* **UPDATE** si existe el player y el snapshot es más nuevo
+* **INSERT** si el player no existe
 
-# construir warehouse
-python etl/load_warehouse.py
+Esto permite:
 
-# ejecutar checks de calidad
-python etl/run_quality_checks.py
+* mantener dimensiones actualizadas
+* evitar duplicados
+
+---
+
+### 5️⃣ Merge en fact
+
+`fact_player_stats` se carga incrementalmente usando:
+
+* keys surrogate
+* comparación de snapshot
+
+Se corrigieron duplicados históricos mediante:
+
+* `ROW_NUMBER()`
+* limpieza one-time
+
+---
+
+## 🧪 Data Quality Checks
+
+Algunos checks implementados:
+
+* igualdad entre total rows y distinct grain
+* detección de NULLs críticos
+* control de duplicados post-merge
+
+Ejemplo:
+
+```sql
+COUNT(*) = COUNT(DISTINCT player_key, team_key, league_key, season)
 ```
 
 ---
 
-## 🔮 Mejoras futuras (con más tiempo)
+## 🧠 Decisiones de diseño
 
-Si este proyecto se llevara a un entorno productivo real, los siguientes pasos serían prioritarios:
-
-* Implementar **cargas incrementales** basadas en fecha de actualización de la API
-* Versionar snapshots históricos para análisis temporal completo
-* Orquestar el pipeline con **Airflow / Dagster**
-* Agregar **tests automatizados en Python** para data quality
-* Exponer el warehouse a una herramienta BI (Power BI / Metabase / Superset)
+* DuckDB elegido por simplicidad y potencia analítica
+* snapshots completos para garantizar consistencia
+* MERGE para simular pipelines productivos
+* evitar herramientas externas (Airflow) para foco conceptual
 
 ---
 
-## 🏁 Conclusión
+## 📈 Estado actual
 
-Este proyecto replica un flujo real de **Data Engineering**, enfatizando:
-
-* Diseño de datos antes que código
-* Separación clara de capas
-* Control de calidad
-* SQL orientado a negocio
-
-Ideal como **proyecto de portfolio** para roles de Data Engineer / Analytics Engineer.
+* ✔ Dimensiones incrementales
+* ✔ Fact incremental
+* ✔ Control de snapshots
+* ✔ Warehouse consistente
 
 ---
 
-📌 *Datos con pelota, pero ingeniería en serio.*
+## 🔮 Próximos pasos
+
+* Queries BI (top scorers, evolución temporal)
+* Dockerización
+* Orquestación (Airflow / Dagster)
+* Tests automáticos
+
+---
+
+## 🎯 Objetivo del proyecto
+
+Este proyecto está pensado para:
+
+* entrevistas técnicas de Data Engineer / Analytics Engineer
+* demostrar dominio real de ETL incremental
+* servir como base para análisis BI
+
+---
+
+👤 Autor: *Thiago*
+
 
 
