@@ -25,6 +25,7 @@ AND f.team_key   = src.team_key
 AND f.league_key = src.league_key
 AND f.season     = src.season
 
+
 WHEN MATCHED
  AND src.snapshot_date > f.snapshot_date
 THEN UPDATE SET
@@ -34,6 +35,7 @@ THEN UPDATE SET
     assists       = src.assists,
     rating        = src.rating,
     snapshot_date = src.snapshot_date
+
 
 WHEN NOT MATCHED
 THEN INSERT (
