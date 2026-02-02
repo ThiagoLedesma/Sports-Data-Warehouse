@@ -121,6 +121,12 @@ These queries demonstrate how the warehouse can be used for football performance
 
 ---
 
+## Run with Docker
+
+```bash
+docker compose up
+
+
 ## 👤 Author
 
 Built as a learning-focused end-to-end data engineering project.

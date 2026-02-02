@@ -1,0 +1,10 @@
+version: "3.9"
+
+services:
+  sports_dw:
+    build: .
+    container_name: sports_dw
+    volumes:
+      - .:/app
+    command: python etl/run_etl.py
+
